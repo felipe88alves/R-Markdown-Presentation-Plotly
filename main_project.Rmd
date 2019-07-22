@@ -1,0 +1,114 @@
+---
+title: "R Markdown Presentation & Plotly"
+author: "Felipe Alves"
+date: "7/22/2019"
+output: slidy_presentation
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+suppressPackageStartupMessages(library(dplyr))
+suppressPackageStartupMessages(library(plotly))
+```
+
+## UFO Sightings Dataset
+
+The data used in this persentation was collected from [tinyTuesday](https://github.com/rfordatascience/tidytuesday), a weekly data project in R from the R4DS online learning community.
+
+```{r Data_Cleaning, echo = FALSE, message=FALSE}
+ufo_sightings <- readr::read_csv("https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2019/2019-06-25/ufo_sightings.csv")
+
+ufo_sightings <- read.csv("C:/Users/efelial/Documents/Ericsson/Courses/Coursera/Data_Science-John_Hopkins/9 - Developing Data Products in R/W3/Project/ufo_sighting_data.csv")
+
+ufo_sightings <- ufo_sightings %>% 
+  rename(
+    state = state.province,
+    city_area = city
+    )
+                                 
+usa <- ufo_sightings %>%
+  select(country, state, city_area, latitude, longitude) %>%
+  filter(country == "us") %>%
+  add_count(state, name = 'state_count') %>%
+  add_count(city_area, name = 'city_count') %>%
+  mutate(state = toupper(state)) %>%
+  mutate(city_area = toupper(city_area)) %>%
+  mutate(latitude = as.numeric(as.character(latitude)))
+
+```
+
+## Interactive Map per State
+
+Hover over the map below to see the amount of UFO sightings per US State.
+The colors in the map also give an indication of the amount.
+
+```{r Plot_map_per_State, echo = FALSE}
+# Create data frame
+state_data <- data.frame(State = usa$state, nOccurences = usa$state_count)
+# Create hover text
+state_data$hover <- with(state_data, paste(State, '<br>', "Occurences:", nOccurences))
+# Make state borders white
+borders <- list(color = toRGB("red"))
+# Set up some mapping options
+map_options <- list(
+  scope = 'usa',
+  projection = list(type = 'albers usa'),
+  showlakes = TRUE,
+  lakecolor = toRGB('white')
+)
+
+plot_ly(z = ~state_data$nOccurences,
+        text = ~state_data$hover,
+        locations = ~state_data$State,
+        type = 'choropleth',
+        locationmode = 'USA-states',
+        color = state_data$nOccurences,
+        colors = 'Blues',
+        marker = list(line = borders)) %>%
+  layout(title = 'US UFO sightings per State',
+         geo = map_options)
+```
+
+## Bubble Map per City
+
+The map below goes into more details on the UFO Sightings and show all cities in which a UFO was sighted more than 100 times
+Each bubble's size and color is an indication of the amount of occurences.
+
+```{r Plot_bubble_map_per_City, echo = FALSE, warning=FALSE}
+
+# Create data frame
+city_data <- data.frame(City = usa$city_area, nOccurences = usa$city_count, lat = usa$latitude, lng = usa$longitude)
+
+# Filter data frame
+city_data <- filter(city_data, nOccurences > 100)
+
+# Create hover text
+city_data$hover <- with(city_data, paste(City,'<br>',"Occurences:",nOccurences))
+
+g <- list(
+  scope = 'usa',
+  projection = list(type = 'albers usa'),
+  showland = TRUE,
+  landcolor = toRGB("gray85"),
+  subunitwidth = 1,
+  countrywidth = 1,
+  subunitcolor = toRGB("white"),
+  countrycolor = toRGB("white")
+)
+
+plot_geo(city_data, 
+         locationmode = 'USA-states', 
+         sizes = c(min(city_data$nOccurences), max(city_data$nOccurences))) %>%
+  add_markers(
+    x = ~lng, 
+    y = ~lat, 
+    size = ~nOccurences, 
+    color = ~nOccurences, 
+    hoverinfo = "text",
+    text = ~hover) %>%
+  layout(
+    title = 'US UFO Sightings per City<br>(Over 100 sightings)', 
+    geo = g)
+
+```
+
